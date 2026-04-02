@@ -9,26 +9,30 @@ function App() {
   const [error, setError] = useState(null);
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || isGenerating) return;
 
     setIsGenerating(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        "/api/hf/models/stabilityai/stable-diffusion-xl-base-1.0",
-        {
-          headers: {
-            "Authorization": `Bearer ${import.meta.env.VITE_HF_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-          body: JSON.stringify({ inputs: prompt.trim() }),
-        }
-      );
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      });
 
       if (!response.ok) {
-        throw new Error(`API returned an error (${response.status}). The model might be loading or the prompt violates safety policies. Please try again in a few seconds.`);
+        // Attempt to extract the server-provided error message
+        let errorMsg = `API returned an error (${response.status}).`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) errorMsg = errorData.error;
+        } catch (e) {
+          // Fallback if parsing fails
+        }
+        throw new Error(errorMsg);
       }
 
       const blob = await response.blob();
@@ -55,7 +59,7 @@ function App() {
         <div className="brand">
           <h1 className="brand-title">
             <Sparkles size={40} color="var(--primary)" />
-            DreamSpace
+            <span className="brand-text">DreamSpace</span>
           </h1>
           <p className="brand-subtitle">
             Harness the power of Stable Diffusion XL to bring your imagination to life.
@@ -123,7 +127,7 @@ function App() {
             </div>
           )}
 
-          {imageUrl && !error ? (
+          {imageUrl ? (
             <>
               <img src={imageUrl} alt={prompt} className="generated-image" />
               {!isGenerating && (
